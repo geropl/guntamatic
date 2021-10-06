@@ -49,9 +49,10 @@ async fn run<P>(ctx: Context, synonym: Synonym, params: P) -> Result
     where P: Serialize {
     let syn = serde_json::ser::to_string(&synonym)?;
     let params_str = serde_qs::to_string(&params)?;
-    let desc_uri = format!("http://{}/ext/parset.cgi?key={}&syn={}&{}", ctx.addr, ctx.key, syn, params_str);
-    let res: Response = surf::get(desc_uri)
-        .recv_json()
+    let set_parameter_url = format!("http://{}/ext/parset.cgi?key={}&syn={}&{}", ctx.addr, ctx.key, syn, params_str);
+    let res: Response = reqwest::get(set_parameter_url)
+        .await?
+        .json()
         .await?;
     Ok(res)
 }

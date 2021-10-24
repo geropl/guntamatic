@@ -78,9 +78,7 @@ fn daq_data_to_points(daq: gweb::DaqData) -> Result<Vec<Point>, anyhow::Error> {
         let name = format!("{}_{}", desc.id, desc.name)
             .to_lowercase();
         let name = WHITESPACE.replace_all(name.as_str(), "-");
-        let desc = format!("{} [{}]", desc.name, desc.unit.map_or("none".to_string(), |u| u.to_string()));
         let point = Point::new(name)
-            .field("description", Value::Str(desc))
             .field("value", value);
         points.push(point);
     }

@@ -35,13 +35,21 @@ cargo run web <device IP> <API key> stream influxdb <url> <token> <bucket> <org>
 
 Last but not least there is an example Grafana dashboard for a PowerChip heating (the only device this code has been tested with so far): ![Screenshot](./docs/pc-dashboard-screenshot.png)
 
+# ToDo
+
+ - [ ] add modbus protocol
+ - [ ] CD using GH actions:
+   - [ ] automated build
+   (- [ ] automated release to cargo - necessary?)
+   - [ ] build docker image and publish to dockerhub
+
 # How to build
 
 ```sh
 cargo build --release
 ```
 
-Should give you a 
+Should give you a standalone executable for linux.
 
 # How to Contribute
 

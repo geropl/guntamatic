@@ -1,3 +1,4 @@
+use log::trace;
 use serde::Deserialize;
 
 
@@ -74,6 +75,18 @@ pub enum Unit {
     CubicMeter,
 }
 
+impl ToString for Unit {
+    fn to_string(&self) -> String {
+        match self {
+            Self::DegreeCelsius => "°C",
+            Self::Percent => "%",
+            Self::Days => "d",
+            Self::Hours => "h",
+            Self::CubicMeter => "m3",
+        }.to_string()
+    }
+}
+
 impl <'de> Deserialize<'de> for Unit {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where D: serde::Deserializer<'de> {
@@ -97,16 +110,22 @@ impl <'de> Deserialize<'de> for Unit {
     }
 }
 
-pub async fn load_and_parse(addr: &str, key: &str) -> Result<(), http_types::Error> {
-    let desc_uri = format!("http://{}/ext/daqdesc.cgi?key={}", addr, key);
-    let data_description: DaqDescriptionList = surf::get(desc_uri)
-        .recv_json()
+pub async fn load_and_parse_daq_data(addr: &str, key: &str) -> Result<DaqData, http_types::Error> {
+    let desc_url = format!("http://{}/ext/daqdesc.cgi?key={}", addr, key);
+    trace!("desc url: {}", desc_url);
+    let data_description: DaqDescriptionList = reqwest::get(desc_url)
+        .await?
+        .json()
         .await?;
+    trace!("desc list:\n{:?}", data_description);
 
-    let data_uri = format!("http://{}/ext/daqdata.cgi?key={}", addr, key);
-    let raw_data: RawData = surf::get(data_uri)
-        .recv_json()
+    let data_url = format!("http://{}/ext/daqdata.cgi?key={}", addr, key);
+    trace!("data url: {}", data_url);
+    let raw_data: RawData = reqwest::get(data_url)
+        .await?
+        .json()
         .await?;
+    trace!("raw data:\n{:?}", raw_data);
 
     let values = data_description.list.into_iter()
         .zip(raw_data.data.into_iter())
@@ -120,8 +139,7 @@ pub async fn load_and_parse(addr: &str, key: &str) -> Result<(), http_types::Err
     let daq = DaqData {
         values,
     };
-    println!("{:#?}", daq);
-    Ok(())
+    Ok(daq)
 }
 
 

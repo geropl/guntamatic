@@ -1,0 +1,11 @@
+image:
+  file: .gitpod/Dockerfile
+tasks:
+- init: |
+    cargo check
+    cargo build
+  command: cargo watch -x check
+vscode:
+  extensions:
+  - bungcip.better-toml
+  - matklad.rust-analyzer

@@ -59,23 +59,26 @@ async fn main() -> AResult<()> {
         .init();
     
     // set ctrl-c handler
-    let (exit_tx, exit_rc) = flume::unbounded::<bool>();
+    let (exit_tx, exit_rc) = flume::unbounded::<(bool, i32)>();
     let ctrl_c_tx = exit_tx.clone();
     ctrlc::set_handler(move || {
-        let _ = ctrl_c_tx.try_send(true);
+        let _ = ctrl_c_tx.try_send((true, 0));
     })?;
 
     // spawn actual streamer
     let task = tokio::spawn(async move {
         let result = execute(options).await;
-        if let Err(e) = result {
+        let rc = if let Err(e) = result {
             error!("{}", e);
-        }
-        let _ = exit_tx.try_send(false);
+            -1
+        } else {
+            0
+        };
+        let _ = exit_tx.try_send((false, rc));
     });
 
 
-    let ctrl_c = exit_rc.recv_async().await?;
+    let (ctrl_c, rc) = exit_rc.recv_async().await?;
     if ctrl_c {
         info!("received Ctrl-C, quitting.");
         task.abort();
@@ -83,6 +86,9 @@ async fn main() -> AResult<()> {
         debug!("task completed, quitting.")
     }
 
+    std::process::exit(rc);
+
+    #[allow(unreachable_code)]
     Ok(())
 }
 

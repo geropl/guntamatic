@@ -27,9 +27,6 @@ lazy_static!{
 }
 
 pub async fn drain(opts: &Options, results_rc: flume::Receiver<gweb::DaqData>) -> Result<(), anyhow::Error> {
-    use std::time::SystemTime;
-    use influxdb_client::Timestamp;
-
     let client = {
         let mut client = Client::new(&opts.url, &opts.token)
             .with_precision(Precision::MS);
@@ -43,23 +40,31 @@ pub async fn drain(opts: &Options, results_rc: flume::Receiver<gweb::DaqData>) -
     };
 
     loop {
-        let data = match results_rc.recv_async().await {
-            Err(err) => {
-                error!("error receiving DAQ data: {}", err);
-                continue;
-            },
-            Ok(p) => p,
-        };
-        let now = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)?;
-        info!("DAQ data received: at {}", now.as_millis());
-        
-        let points = daq_data_to_points(data)?;
-        let ts = Timestamp::Str(now.as_millis().to_string());   // precision as specified above
-        client.insert_points(&points, TimestampOptions::Use(ts))
-            .await
-            .map_err(|err| anyhow!("error inserting into influxdb: {:?}", err))?;
-        info!("wrote DAQ data to influxdb")
+        let res = receive_and_write_data(&client, &results_rc).await;
+        if let Err(err) = res {
+            error!("{:?}", err);
+        }
     }
+}
+
+async fn receive_and_write_data(client: &Client, results_rc: &flume::Receiver<gweb::DaqData>) -> Result<(), anyhow::Error> {
+    use std::time::SystemTime;
+    use influxdb_client::Timestamp;
+
+    let data = results_rc.recv_async()
+        .await
+        .map_err(|err| anyhow!("error receiving DAQ data: {}", err))?;
+    let now = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)?;
+    info!("DAQ data received: at {}", now.as_millis());
+    
+    let points = daq_data_to_points(data)?;
+    let ts = Timestamp::Str(now.as_millis().to_string());   // precision as specified above
+    client.insert_points(&points, TimestampOptions::Use(ts))
+        .await
+        .map_err(|err| anyhow!("error inserting into influxdb: {:?}", err))?;
+    info!("wrote DAQ data to influxdb");
+
+    Ok(())
 }
 
 fn daq_data_to_points(daq: gweb::DaqData) -> Result<Vec<Point>, anyhow::Error> {
